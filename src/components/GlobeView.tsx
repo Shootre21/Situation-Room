@@ -3,6 +3,7 @@ import Globe, { GlobeMethods } from 'react-globe.gl';
 import { LayerState, FlightData, EarthquakeData, SatelliteData, MaritimeData, WeatherData, GeoEventData } from '../types';
 
 interface GlobeViewProps {
+  autoRotate: boolean;
   layers: LayerState;
   flights: FlightData[];
   earthquakes: EarthquakeData[];
@@ -12,7 +13,7 @@ interface GlobeViewProps {
   geoEvents: GeoEventData[];
 }
 
-export default function GlobeView({ layers, flights, earthquakes, satellites, maritime, weather, geoEvents }: GlobeViewProps) {
+export default function GlobeView({ autoRotate, layers, flights, earthquakes, satellites, maritime, weather, geoEvents }: GlobeViewProps) {
   const globeRef = useRef<GlobeMethods>();
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
 
@@ -26,11 +27,11 @@ export default function GlobeView({ layers, flights, earthquakes, satellites, ma
 
   useEffect(() => {
     if (globeRef.current) {
-      globeRef.current.controls().autoRotate = true;
+      globeRef.current.controls().autoRotate = autoRotate;
       globeRef.current.controls().autoRotateSpeed = 0.5;
       globeRef.current.pointOfView({ altitude: 2.5 });
     }
-  }, []);
+  }, [autoRotate]);
 
   const pointsData = useMemo(() => {
     let data: any[] = [];
