@@ -277,7 +277,7 @@ export async function fetchWeather(targetTimeMs = Date.now()): Promise<WeatherDa
 
 export async function fetchGeoEvents(): Promise<GeoEventData[]> {
   try {
-    const [airports, geonames] = await Promise.all([
+    const [airports, geonames, reliefweb] = await Promise.all([
       fetch('https://raw.githubusercontent.com/ip2location/ip2location-iata-icao/master/iata-icao.csv')
         .then(async res => {
           if (!res.ok) throw new Error();
@@ -295,6 +295,8 @@ export async function fetchGeoEvents(): Promise<GeoEventData[]> {
                 lng,
                 name: cols[2] || 'Airport',
                 category: 'Infrastructure',
+                kind: 'infrastructure' as const,
+                severity: 'low' as const,
                 source: 'IP2Location Airport DB',
               };
             })
@@ -311,13 +313,35 @@ export async function fetchGeoEvents(): Promise<GeoEventData[]> {
             lng: Number(eq.lng),
             name: eq.eqid || 'GeoNames Event',
             category: 'GeoNames Seismic',
+            kind: 'seismic',
+            severity: Number(eq.magnitude) >= 6 ? 'high' : Number(eq.magnitude) >= 4.5 ? 'medium' : 'low',
             source: 'GeoNames',
           } as GeoEventData)).filter((geo: GeoEventData) => isValidCoordinate(geo.lat, geo.lng));
         })
         .catch(() => [] as GeoEventData[]),
+      fetch('https://api.reliefweb.int/v1/disasters?appname=situation-room&limit=25&preset=latest')
+        .then(async res => {
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          return (data.data ?? []).map((item: any, idx: number) => {
+            const lat = Number(item?.fields?.country?.[0]?.location?.lat);
+            const lng = Number(item?.fields?.country?.[0]?.location?.lon);
+            return {
+              id: `rw-disaster-${item.id ?? idx}`,
+              lat,
+              lng,
+              name: item?.fields?.name || 'ReliefWeb Event',
+              category: item?.fields?.type?.[0]?.name || 'Conflict/Disaster',
+              kind: 'conflict' as const,
+              severity: 'medium' as const,
+              source: 'ReliefWeb',
+            } as GeoEventData;
+          }).filter((geo: GeoEventData) => isValidCoordinate(geo.lat, geo.lng));
+        })
+        .catch(() => [] as GeoEventData[]),
     ]);
 
-    return dedupeById([...airports, ...geonames]);
+    return dedupeById([...airports, ...geonames, ...reliefweb]);
   } catch (e) {
     console.error('Failed to fetch geo events', e);
     return [];
