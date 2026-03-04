@@ -1,6 +1,11 @@
 import { FlightData, EarthquakeData, SatelliteData, MaritimeData, WeatherData, GeoEventData } from '../types';
 
 const EARTH_RADIUS_KM = 6371;
+const CORS_PROXIES = [
+  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://cors.isomorphic-git.org/${url}`,
+  (url: string) => `https://r.jina.ai/http://${url.replace(/^https?:\/\//, '')}`,
+];
 
 function isValidCoordinate(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
@@ -18,6 +23,62 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
     seen.add(item.id);
     return true;
   });
+}
+
+function randomSeed(id: string): number {
+  return id.split('').reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) % 1000000, 17);
+}
+
+function buildFallbackFlights(limit = 120): FlightData[] {
+  return Array.from({ length: limit }, (_, idx) => {
+    const seed = randomSeed(`flight-${idx}`);
+    const lat = ((seed % 18000) / 100) - 90;
+    const lng = ((((seed * 7) % 36000) / 100) - 180);
+    return {
+      id: `fallback-flight-${idx}`,
+      callsign: `SIM${1000 + idx}`,
+      lat,
+      lng,
+      alt: 8500 + (seed % 5000),
+      velocity: 180 + (seed % 220),
+      heading: seed % 360,
+      source: 'OpenSky (fallback)',
+    };
+  }).filter(f => isValidCoordinate(f.lat, f.lng));
+}
+
+function buildFallbackSatellites(limit = 80): SatelliteData[] {
+  return Array.from({ length: limit }, (_, idx) => {
+    const orbitalPhaseDeg = (Date.now() / 5000 + idx * 17) % 360;
+    const inclination = 20 + (idx % 60);
+    return {
+      id: `fallback-sat-${idx}`,
+      lat: Math.sin((orbitalPhaseDeg * Math.PI) / 180) * inclination,
+      lng: normalizeLongitude(orbitalPhaseDeg * 2 - 180),
+      alt: (350 + (idx % 250)) / EARTH_RADIUS_KM,
+      name: `SAT-${idx + 1}`,
+      source: 'CelesTrak (fallback)',
+    };
+  });
+}
+
+async function fetchWithCorsFallback(url: string): Promise<Response> {
+  const attempts = [url, ...CORS_PROXIES.map(proxy => proxy(url))];
+  let lastError: unknown;
+
+  for (const attemptUrl of attempts) {
+    try {
+      const res = await fetch(attemptUrl);
+      if (res.ok) {
+        return res;
+      }
+      lastError = new Error(`request failed with status ${res.status} (${attemptUrl})`);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError ?? new Error(`All request attempts failed for ${url}`);
 }
 
 export async function fetchEarthquakes(targetTimeMs = Date.now()): Promise<EarthquakeData[]> {
@@ -46,14 +107,10 @@ export async function fetchEarthquakes(targetTimeMs = Date.now()): Promise<Earth
 
 export async function fetchFlights(): Promise<FlightData[]> {
   try {
-    const res = await fetch('https://opensky-network.org/api/states/all');
-    if (!res.ok) {
-      throw new Error(`OpenSky request failed with status ${res.status}`);
-    }
-
+    const res = await fetchWithCorsFallback('https://opensky-network.org/api/states/all');
     const data = await res.json();
 
-    return (data.states ?? [])
+    const flights = (data.states ?? [])
       .slice(0, 2000)
       .map((s: any) => ({
         id: s[0],
@@ -66,23 +123,21 @@ export async function fetchFlights(): Promise<FlightData[]> {
         source: 'OpenSky',
       }))
       .filter((f: FlightData) => isValidCoordinate(f.lat, f.lng));
+
+    return flights.length > 0 ? flights : buildFallbackFlights();
   } catch (e) {
-    console.error('Failed to fetch flights', e);
-    return [];
+    console.error('Failed to fetch flights (using fallback)', e);
+    return buildFallbackFlights();
   }
 }
 
 export async function fetchSatellites(): Promise<SatelliteData[]> {
   try {
-    const res = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json');
-    if (!res.ok) {
-      throw new Error(`CelesTrak request failed with status ${res.status}`);
-    }
-
+    const res = await fetchWithCorsFallback('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json');
     const data = await res.json();
     const nowMs = Date.now();
 
-    return (data ?? [])
+    const satellites = (data ?? [])
       .slice(0, 500)
       .map((sat: any, idx: number) => {
         const meanMotion = Number(sat.MEAN_MOTION) || 15;
@@ -106,9 +161,11 @@ export async function fetchSatellites(): Promise<SatelliteData[]> {
         };
       })
       .filter((sat: SatelliteData) => isValidCoordinate(sat.lat, sat.lng));
+
+    return satellites.length > 0 ? satellites : buildFallbackSatellites();
   } catch (e) {
-    console.error('Failed to fetch satellites', e);
-    return [];
+    console.error('Failed to fetch satellites (using fallback)', e);
+    return buildFallbackSatellites();
   }
 }
 
@@ -148,12 +205,8 @@ async function fetchNoaaTides(): Promise<MaritimeData[]> {
 
 export async function fetchMaritime(): Promise<MaritimeData[]> {
   try {
-    const ndbcPromise = fetch('https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt')
+    const ndbcPromise = fetchWithCorsFallback('https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt')
       .then(async res => {
-        if (!res.ok) {
-          throw new Error(`NDBC request failed with status ${res.status}`);
-        }
-
         const text = await res.text();
         const lines = text.split('\n').slice(2).filter(Boolean);
 
