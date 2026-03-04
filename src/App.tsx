@@ -55,7 +55,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    const buildAlerts = (eqData: EarthquakeData[], wxData: WeatherData[]): Alert[] => {
+    const buildAlerts = (eqData: EarthquakeData[], wxData: WeatherData[], geoData: GeoEventData[]): Alert[] => {
       const newAlerts: Alert[] = [];
 
       eqData.filter(eq => eq.mag >= 5.0).forEach(eq => {
@@ -80,6 +80,20 @@ export default function App() {
             timestamp: new Date(),
             lat: w.lat,
             lng: w.lng,
+          });
+        });
+
+      geoData
+        .filter(g => g.kind === 'conflict' || g.severity === 'high')
+        .slice(0, 2)
+        .forEach(g => {
+          newAlerts.push({
+            id: `alert-geo-${g.id}`,
+            type: g.severity === 'high' ? 'critical' : 'warning',
+            message: `${g.category}: ${g.name}`,
+            timestamp: new Date(),
+            lat: g.lat,
+            lng: g.lng,
           });
         });
 
@@ -120,7 +134,7 @@ export default function App() {
         setMaritime(marData);
         setWeather(wxData);
         setGeoEvents(geoData);
-        setAlerts(buildAlerts(eqData, wxData));
+        setAlerts(buildAlerts(eqData, wxData, geoData));
       }
 
       setHistory(prev => {

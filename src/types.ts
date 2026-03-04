@@ -67,6 +67,8 @@ export interface GeoEventData {
   lng: number;
   name: string;
   category: string;
+  kind?: 'infrastructure' | 'seismic' | 'conflict';
+  severity?: 'low' | 'medium' | 'high';
   source?: string;
 }
 

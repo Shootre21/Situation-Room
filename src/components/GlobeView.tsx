@@ -85,15 +85,31 @@ export default function GlobeView({ autoRotate, layers, flights, earthquakes, sa
     }
 
     if (layers.infrastructure) {
-      data = data.concat(geoEvents.map(g => ({
-        lat: g.lat,
-        lng: g.lng,
-        size: 0.04,
-        color: '#22c55e',
-        type: 'geo',
-        name: g.name,
-        detail: g.category,
-      })));
+      data = data.concat(geoEvents
+        .filter(g => g.kind !== 'conflict')
+        .map(g => ({
+          lat: g.lat,
+          lng: g.lng,
+          size: 0.04,
+          color: '#22c55e',
+          type: 'infrastructure',
+          name: g.name,
+          detail: g.category,
+        })));
+    }
+
+    if (layers.conflict) {
+      data = data.concat(geoEvents
+        .filter(g => g.kind === 'conflict' || g.severity === 'high')
+        .map(g => ({
+          lat: g.lat,
+          lng: g.lng,
+          size: 0.08,
+          color: '#ef4444',
+          type: 'conflict',
+          name: g.name,
+          detail: `${g.category}${g.severity ? ` • ${g.severity.toUpperCase()}` : ''}`,
+        })));
     }
 
     return data;
