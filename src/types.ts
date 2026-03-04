@@ -16,6 +16,8 @@ export interface FlightData {
   callsign: string;
   velocity: number;
   heading: number;
+  source?: string;
+  fetchedAt?: number;
 }
 
 export interface EarthquakeData {
@@ -25,6 +27,7 @@ export interface EarthquakeData {
   mag: number;
   title: string;
   time: number;
+  source?: string;
 }
 
 export interface SatelliteData {
@@ -33,6 +36,11 @@ export interface SatelliteData {
   lng: number;
   alt: number;
   name: string;
+  source?: string;
+  fetchedAt?: number;
+  meanMotion?: number;
+  inclination?: number;
+  orbitClass?: 'geosynchronous' | 'leo-meo';
 }
 
 export interface MaritimeData {
@@ -43,6 +51,8 @@ export interface MaritimeData {
   heading: number;
   speed: number;
   waveHeight?: number;
+  source?: string;
+  fetchedAt?: number;
 }
 
 export interface WeatherData {
@@ -53,6 +63,8 @@ export interface WeatherData {
   weatherCode: number;
   temperatureC: number;
   windSpeedKph: number;
+  source?: string;
+  observedAt?: string;
 }
 
 export interface GeoEventData {
@@ -61,6 +73,7 @@ export interface GeoEventData {
   lng: number;
   name: string;
   category: string;
+  source?: string;
 }
 
 export interface Alert {

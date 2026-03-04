@@ -4,23 +4,34 @@ import { Globe, Activity, Plane, Ship, Satellite } from 'lucide-react';
 
 interface TopBarProps {
   stats: GlobalStats;
+  globeSpinning: boolean;
+  onToggleGlobeSpin: () => void;
 }
 
-export default function TopBar({ stats }: TopBarProps) {
+export default function TopBar({ stats, globeSpinning, onToggleGlobeSpin }: TopBarProps) {
   return (
     <div className="absolute top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-md border-b border-white/10 z-20 flex items-center justify-between px-6 text-white shadow-lg">
       <div className="flex items-center space-x-3">
-        <Globe className="w-6 h-6 text-cyan-500 animate-pulse" />
+        <Globe className={`w-6 h-6 text-cyan-500 ${globeSpinning ? 'animate-pulse' : ''}`} />
         <h1 className="text-xl font-mono font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
           GLOBAL SITUATIONAL AWARENESS
         </h1>
       </div>
 
-      <div className="flex space-x-8">
-        <StatItem icon={Plane} label="Flights" value={stats.activeFlights} color="text-cyan-400" />
-        <StatItem icon={Ship} label="Vessels" value={stats.activeShips} color="text-yellow-400" />
-        <StatItem icon={Satellite} label="Satellites" value={stats.satellitesTracked} color="text-fuchsia-400" />
-        <StatItem icon={Activity} label="Earthquakes" value={stats.recentEarthquakes} color="text-orange-400" />
+      <div className="flex items-center space-x-4">
+        <button
+          onClick={onToggleGlobeSpin}
+          className="px-3 py-1.5 text-xs font-mono rounded border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-200"
+        >
+          {globeSpinning ? 'STOP GLOBE SPIN' : 'START GLOBE SPIN'}
+        </button>
+
+        <div className="flex space-x-6">
+          <StatItem icon={Plane} label="Flights" value={stats.activeFlights} color="text-cyan-400" />
+          <StatItem icon={Ship} label="Vessels" value={stats.activeShips} color="text-yellow-400" />
+          <StatItem icon={Satellite} label="Satellites" value={stats.satellitesTracked} color="text-fuchsia-400" />
+          <StatItem icon={Activity} label="Earthquakes" value={stats.recentEarthquakes} color="text-orange-400" />
+        </div>
       </div>
     </div>
   );
