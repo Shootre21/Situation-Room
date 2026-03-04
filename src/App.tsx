@@ -9,8 +9,8 @@ import SidebarLeft from './components/SidebarLeft';
 import SidebarRight from './components/SidebarRight';
 import TopBar from './components/TopBar';
 import BottomTimeline from './components/BottomTimeline';
-import { LayerState, FlightData, EarthquakeData, SatelliteData, MaritimeData, Alert, GlobalStats } from './types';
-import { fetchEarthquakes, fetchFlights, fetchSatellites, fetchMaritime } from './services/dataService';
+import { LayerState, FlightData, EarthquakeData, SatelliteData, MaritimeData, WeatherData, GeoEventData, Alert, GlobalStats } from './types';
+import { fetchEarthquakes, fetchFlights, fetchSatellites, fetchMaritime, fetchWeather, fetchGeoEvents } from './services/dataService';
 
 export default function App() {
   const [layers, setLayers] = useState<LayerState>({
@@ -27,6 +27,8 @@ export default function App() {
   const [earthquakes, setEarthquakes] = useState<EarthquakeData[]>([]);
   const [satellites, setSatellites] = useState<SatelliteData[]>([]);
   const [maritime, setMaritime] = useState<MaritimeData[]>([]);
+  const [weather, setWeather] = useState<WeatherData[]>([]);
+  const [geoEvents, setGeoEvents] = useState<GeoEventData[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
 
   const stats: GlobalStats = {
@@ -39,14 +41,20 @@ export default function App() {
   useEffect(() => {
     // Initial data load
     const loadData = async () => {
-      const [eqData, flData] = await Promise.all([
+      const [eqData, flData, satData, marData, wxData, geoData] = await Promise.all([
         fetchEarthquakes(),
-        fetchFlights()
+        fetchFlights(),
+        fetchSatellites(),
+        fetchMaritime(),
+        fetchWeather(),
+        fetchGeoEvents(),
       ]);
       setEarthquakes(eqData);
       setFlights(flData);
-      setSatellites(fetchSatellites());
-      setMaritime(fetchMaritime());
+      setSatellites(satData);
+      setMaritime(marData);
+      setWeather(wxData);
+      setGeoEvents(geoData);
 
       // Generate some initial alerts based on data
       const newAlerts: Alert[] = [];
@@ -77,22 +85,18 @@ export default function App() {
 
     // Set up polling for live updates
     const interval = setInterval(async () => {
-      const flData = await fetchFlights();
+      const [flData, satData, marData, wxData] = await Promise.all([
+        fetchFlights(),
+        fetchSatellites(),
+        fetchMaritime(),
+        fetchWeather(),
+      ]);
+
       setFlights(flData);
-      
-      // Simulate movement for mock data
-      setSatellites(prev => prev.map(s => ({
-        ...s,
-        lng: s.lng + 0.5 > 180 ? -180 : s.lng + 0.5
-      })));
-      
-      setMaritime(prev => prev.map(m => ({
-        ...m,
-        lat: m.lat + (Math.random() - 0.5) * 0.1,
-        lng: m.lng + (Math.random() - 0.5) * 0.1
-      })));
-      
-    }, 10000); // 10s updates
+      setSatellites(satData);
+      setMaritime(marData);
+      setWeather(wxData);
+    }, 60000); // 60s updates
 
     return () => clearInterval(interval);
   }, []);
@@ -105,6 +109,8 @@ export default function App() {
         earthquakes={earthquakes}
         satellites={satellites}
         maritime={maritime}
+        weather={weather}
+        geoEvents={geoEvents}
       />
       
       <TopBar stats={stats} />

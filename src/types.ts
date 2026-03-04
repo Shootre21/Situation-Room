@@ -42,6 +42,25 @@ export interface MaritimeData {
   type: string;
   heading: number;
   speed: number;
+  waveHeight?: number;
+}
+
+export interface WeatherData {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  weatherCode: number;
+  temperatureC: number;
+  windSpeedKph: number;
+}
+
+export interface GeoEventData {
+  id: string;
+  lat: number;
+  lng: number;
+  name: string;
+  category: string;
 }
 
 export interface Alert {
