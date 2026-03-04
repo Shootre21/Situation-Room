@@ -2,9 +2,7 @@ import { FlightData, EarthquakeData, SatelliteData, MaritimeData, WeatherData, G
 
 const EARTH_RADIUS_KM = 6371;
 const CORS_PROXIES = [
-  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  (url: string) => `https://cors.isomorphic-git.org/${url}`,
-  (url: string) => `https://r.jina.ai/http://${url.replace(/^https?:\/\//, '')}`,
+  (url: string) => `/api/proxy?url=${encodeURIComponent(url)}`,
 ];
 
 function isValidCoordinate(lat: number, lng: number): boolean {
@@ -79,6 +77,11 @@ async function fetchWithCorsFallback(url: string): Promise<Response> {
   }
 
   throw lastError ?? new Error(`All request attempts failed for ${url}`);
+}
+
+async function fetchJsonWithCorsFallback<T>(url: string): Promise<T> {
+  const res = await fetchWithCorsFallback(url);
+  return res.json() as Promise<T>;
 }
 
 export async function fetchEarthquakes(targetTimeMs = Date.now()): Promise<EarthquakeData[]> {
@@ -331,7 +334,7 @@ export async function fetchWeather(targetTimeMs = Date.now()): Promise<WeatherDa
 export async function fetchGeoEvents(): Promise<GeoEventData[]> {
   try {
     const [airports, geonames, reliefweb] = await Promise.all([
-      fetch('https://raw.githubusercontent.com/ip2location/ip2location-iata-icao/master/iata-icao.csv')
+      fetchWithCorsFallback('https://raw.githubusercontent.com/ip2location/ip2location-iata-icao/master/iata-icao.csv')
         .then(async res => {
           if (!res.ok) throw new Error();
           const text = await res.text();
@@ -356,10 +359,8 @@ export async function fetchGeoEvents(): Promise<GeoEventData[]> {
             .filter((geo: GeoEventData) => isValidCoordinate(geo.lat, geo.lng));
         })
         .catch(() => [] as GeoEventData[]),
-      fetch('https://secure.geonames.org/earthquakesJSON?north=90&south=-90&east=180&west=-180&username=demo')
-        .then(async res => {
-          if (!res.ok) throw new Error();
-          const data = await res.json();
+      fetchJsonWithCorsFallback<any>('https://secure.geonames.org/earthquakesJSON?north=90&south=-90&east=180&west=-180&username=demo')
+        .then(async data => {
           return (data.earthquakes ?? []).map((eq: any, idx: number) => ({
             id: `geonames-eq-${idx}`,
             lat: Number(eq.lat),
@@ -372,10 +373,8 @@ export async function fetchGeoEvents(): Promise<GeoEventData[]> {
           } as GeoEventData)).filter((geo: GeoEventData) => isValidCoordinate(geo.lat, geo.lng));
         })
         .catch(() => [] as GeoEventData[]),
-      fetch('https://api.reliefweb.int/v1/disasters?appname=situation-room&limit=25&preset=latest')
-        .then(async res => {
-          if (!res.ok) throw new Error();
-          const data = await res.json();
+      fetchJsonWithCorsFallback<any>('https://api.reliefweb.int/v1/disasters?appname=situation-room&limit=25&preset=latest')
+        .then(async data => {
           return (data.data ?? []).map((item: any, idx: number) => {
             const lat = Number(item?.fields?.country?.[0]?.location?.lat);
             const lng = Number(item?.fields?.country?.[0]?.location?.lon);
