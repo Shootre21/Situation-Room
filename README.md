@@ -172,6 +172,7 @@ npm run lint     # type-check via tsc --noEmit
 npm run build    # production build
 npm run preview  # preview built app
 npm run clean    # remove dist/
+npm run check:conflicts  # detect unresolved git conflict markers
 ```
 
 ---
@@ -181,6 +182,7 @@ npm run clean    # remove dist/
 - If globe tiles fail to load, verify outbound network access and CORS allowances in your environment.
 - If a data layer appears empty, check browser console for endpoint failures or API throttling.
 - If build size warnings appear, consider dynamic imports/manual chunking in Vite/Rollup.
+- Before committing, run `npm run check:conflicts` to confirm no unresolved merge markers remain.
 
 ---
 
